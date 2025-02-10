@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import {Test, console} from "../lib/forge-std/src/Test.sol";
 import {Htlc} from "../src/Htlc.sol";
 
-contract HtlcTest is Test {
+contract test_Htlc is Test {
     Htlc public htlc;
 
     address payable public claimer = payable(0x6F7a963dc0379a387f71C0fCe758f2A0D6b506b5);
@@ -13,7 +13,38 @@ contract HtlcTest is Test {
 
     function setUp() public {
         htlc = new Htlc();
-        htlc.initiateSwap{value:5}(secret, claimer);
+        htlc.initiateSwap{value: 5 ether}(secret, claimer);
     }
+
+    
+    function testInitiation() public{
+        setUp();
+        vm.expectRevert("The swap have already been initiated");
+        htlc.initiateSwap{value: 2 ether}(secret, claimer);   
+    }
+
+    function testWithdrawDeniedTest() public {
+        setUp();
+        vm.prank(claimer);
+        vm.expectRevert("Wrong secret");
+        htlc.withdrawFunds("bigdogo");
+    }
+
+    function testTimeWithdrawDenied() public {
+        setUp();
+        vm.prank(claimer);
+        vm.expectRevert('Please wait at least 1 hour since the initiation of the swap');
+        htlc.timeWithdraw();
+    }
+
+
+    function testWithdrawSuccess() public {
+        setUp();
+        vm.prank(claimer);
+        htlc.withdrawFunds("mydog");
+        assertEq(address(claimer).balance, 5 ether, "The claimer should have received 5 ether");
+    }
+
+
 
 }
