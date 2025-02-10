@@ -7,10 +7,10 @@ contract Htlc {
 
     struct Swap {
         address payable owner;
-        address payable claimer;
         bytes32 secretHash;
         uint256 amount;
         uint256 lockTime;
+        bool claimed;
     }
 
     struct Transaction {
@@ -21,74 +21,74 @@ contract Htlc {
     }
 
     uint256 public timeLock = 3600;
-    address payable owner;
-    bytes32 public swapId;
-    bool swapOccured = false;
+
 
     mapping (bytes32 => Swap) public swaps;
     mapping (bytes32 => Transaction) public withdraw;
 
 
-    event swapInitiated(bytes32 swapID, address indexed owner, address indexed claimer, uint256 amount, uint256 lockTime, bytes32 secretHash);
+    event swapInitiated(bytes32 swapID, address indexed owner, uint256 amount, uint256 lockTime, bytes32 secretHash);
     event fundsWithdraw(bytes32 swapID, address indexed claimer, bytes32 indexed secretHash, string dehashedSecret);
     event timeWithdrawEvent(bytes32 swapID, address owner, uint256 amount);
 
-    constructor(){
-        owner = payable(msg.sender);
-    }
 
-    function initiateSwap(bytes32 secret, address payable claimer) public payable {
+
+    function initiateSwap(bytes32 secret) public payable returns(bytes32) {
         require(msg.value > 0, "0 ETH deposited");
-        require(swapOccured == false, "The swap have already been initiated");
 
-        swapOccured = true;
-        swapId = keccak256(abi.encodePacked(claimer));
-        // keccak256(abi.encodePacked(msg.sender, claimer, msg.value, block.timestamp));
+        bytes32 swapId = keccak256(abi.encodePacked(msg.sender, msg.value, block.timestamp));
+
         swaps[swapId] = Swap({
             owner: payable(msg.sender),
-            claimer: payable(claimer),
             secretHash: secret,
             amount: msg.value,
-            lockTime: block.timestamp + timeLock
+            lockTime: block.timestamp + timeLock,
+            claimed: false
         });
             
-        emit swapInitiated(swapId, msg.sender, claimer, msg.value, block.timestamp + timeLock, secret);
+        emit swapInitiated(swapId, msg.sender, msg.value, block.timestamp + timeLock, secret);
 
+        return swapId;
     }
 
 
 
 
 
-    function withdrawFunds(string calldata dehashedSecret) public payable{
-        Swap storage swap = swaps[swapId];
+    function withdrawFunds(string calldata dehashedSecret, bytes32 swapID) public payable returns(bytes32){
+        Swap storage swap = swaps[swapID];
         require(keccak256(abi.encodePacked(dehashedSecret)) == swap.secretHash, "Wrong secret");
-        require(address(this).balance > 0, "0 ETH on the HTLC contract");
-
-        uint256 amount = address(this).balance;
-
-        bytes32 withdrawId = keccak256(abi.encodePacked(msg.sender, address(this).balance, block.timestamp));
+        require(swap.amount > 0, "0 ETH on the HTLC contract");
+        require(swap.claimed == false, "Funds already claimed");
 
 
-        payable(msg.sender).transfer(address(this).balance);
+        bytes32 withdrawId = keccak256(abi.encodePacked(swapID, msg.sender));
+
+        swap.claimed = true;
+        payable(msg.sender).transfer(swap.amount);
 
 
         withdraw[withdrawId] = Transaction({
         claimer: payable(msg.sender),
-        amount: amount,
+        amount: swap.amount,
         secretHash: swap.secretHash,
         dehashedSecret: dehashedSecret
         });
-        emit fundsWithdraw(swapId, msg.sender, swap.secretHash, dehashedSecret);
+        emit fundsWithdraw(swapID, msg.sender, swap.secretHash, dehashedSecret);
+        
+
+        return withdrawId;
     }
 
-    function timeWithdraw() public payable{
-        Swap storage swap = swaps[swapId];
+    function timeWithdraw(bytes32  swapIdNumber) public payable{
+        Swap storage swap = swaps[swapIdNumber];
         require(block.timestamp >= swap.lockTime, "Please wait at least 1 hour since the initiation of the swap");
         require(msg.sender == swap.owner, "Only the owner can withdraw the funds");
-        owner.transfer(address(this).balance);
+        require(swap.claimed == false, "Funds already claimed");
+        swap.claimed = true;
+        payable(msg.sender).transfer(swap.amount);
 
-        emit timeWithdrawEvent(swapId, msg.sender, swap.amount);
+        emit timeWithdrawEvent(swapIdNumber, msg.sender, swap.amount);
     }
 
 
