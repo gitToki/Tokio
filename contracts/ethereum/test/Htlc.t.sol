@@ -16,22 +16,21 @@ contract test_Htlc is Test {
         htlc.initiateSwap{value: 5 ether}(secret, claimer);
     }
 
+
     
     function testInitiation() public{
-        setUp();
         vm.expectRevert("The swap have already been initiated");
         htlc.initiateSwap{value: 2 ether}(secret, claimer);   
     }
 
     function testWithdrawDeniedTest() public {
-        setUp();
+
         vm.prank(claimer);
         vm.expectRevert("Wrong secret");
         htlc.withdrawFunds("bigdogo");
     }
 
     function testTimeWithdrawDenied() public {
-        setUp();
         vm.prank(claimer);
         vm.expectRevert('Please wait at least 1 hour since the initiation of the swap');
         htlc.timeWithdraw();
@@ -39,7 +38,6 @@ contract test_Htlc is Test {
 
 
     function testWithdrawSuccess() public {
-        setUp();
         vm.prank(claimer);
         htlc.withdrawFunds("mydog");
         assertEq(address(claimer).balance, 5 ether, "The claimer should have received 5 ether");
