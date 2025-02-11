@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
-
+import { console} from "../lib/forge-std/src/Test.sol";
 
 contract Htlc {
 
@@ -30,7 +30,7 @@ contract Htlc {
     event swapInitiated(bytes32 swapID, address indexed owner, uint256 amount, uint256 lockTime, bytes32 secretHash);
     event fundsWithdraw(bytes32 swapID, address indexed claimer, bytes32 indexed secretHash, string dehashedSecret);
     event timeWithdrawEvent(bytes32 swapID, address owner, uint256 amount);
-
+    event withdrawFailed(bytes32 swapID, address claimer);
 
 
     function initiateSwap(bytes32 secret) public payable returns(bytes32) {
@@ -60,12 +60,18 @@ contract Htlc {
         require(keccak256(abi.encodePacked(dehashedSecret)) == swap.secretHash, "Wrong secret");
         require(swap.amount > 0, "0 ETH on the HTLC contract");
         require(swap.claimed == false, "Funds already claimed");
-
+        console.log("I'm here dawg");
 
         bytes32 withdrawId = keccak256(abi.encodePacked(swapID, msg.sender));
 
         swap.claimed = true;
-        payable(msg.sender).transfer(swap.amount);
+
+        (bool success, ) = payable(msg.sender).call{value: swap.amount}("");
+        
+        if (!success) {
+            swap.claimed = false;
+            emit withdrawFailed(swapID, msg.sender);
+        }
 
 
         withdraw[withdrawId] = Transaction({

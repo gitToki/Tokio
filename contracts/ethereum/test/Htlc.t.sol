@@ -8,23 +8,15 @@ contract test_Htlc is Test {
     Htlc public htlc;
 
     bytes32 public secret = 0xd115e2ed2c224310de4a468136c0a85bc10b5c9b2c52d8cd8124fe6ebc447b0f;
+//  secret = mydog
     bytes32 swapId;
     address payable claimer;
-
-// secret = mydog
 
     function setUp() public {
         htlc = new Htlc();
         claimer = payable(address(0x123));
         swapId = htlc.initiateSwap{value: 5 ether}(secret);
     }
-
-
-    
-//    function testInitiation() public{
-//        vm.expectRevert("The swap have already been initiated");
-//        htlc.initiateSwap{value: 2 ether}(secret);   
-//    }
 
     function testWithdrawDeniedTest() public {
         vm.expectRevert("Wrong secret");
@@ -36,6 +28,9 @@ contract test_Htlc is Test {
         htlc.timeWithdraw(swapId);
     }
 
+    function testWithdrawSucess() public {
+        htlc.withdrawFunds("mydog", swapId);
+    }
 
 
 }
