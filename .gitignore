@@ -1,0 +1,14 @@
+# Compiler files
+contracts/ethereum/cache/
+out/
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
+
+# Docs
+contracts/ethereum/docs/
+
+# Dotenv file
+.env
